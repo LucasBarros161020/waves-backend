@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """Core application utilities and configuration."""
 
 __author__ = "Lucas Barros"

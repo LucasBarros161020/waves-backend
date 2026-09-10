@@ -1012,7 +1012,6 @@ metadados padronizado.
 Modelo:
 
 ```python
-# -*- coding: utf-8 -*-
 """Descrição objetiva do módulo."""
 
 __author__ = "Lucas Barros"
@@ -1024,13 +1023,17 @@ __status__ = "Development"
 
 Regras:
 
-- a declaração de encoding deverá permanecer na primeira linha;
-- o módulo deverá possuir uma docstring curta e objetiva;
+- o módulo deverá possuir uma docstring curta e objetiva, como primeira linha do arquivo;
 - os metadados deverão aparecer após a docstring e antes do código do módulo;
 - `__version__` deverá utilizar string;
 - enquanto o sistema estiver em desenvolvimento, utilizar `Development`;
 - `Production` somente deverá ser utilizado quando a versão correspondente estiver efetivamente em produção;
 - novos arquivos Python deverão nascer com esse padrão, incluindo arquivos `__init__.py`.
+
+Não incluir a declaração `# -*- coding: utf-8 -*-`: o projeto assume
+Python 3, que já trata arquivos-fonte como UTF-8 por padrão. Incluir essa
+linha é sinalizado como redundante pela regra `UP009` do `ruff`, que o
+projeto utiliza sem suprimir essa verificação.
 
 ---
 

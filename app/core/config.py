@@ -19,6 +19,9 @@ class Settings(BaseSettings):
     environment: str = "development"
     debug: bool = True
 
+    mongodb_url: str = "mongodb://waves:waves@localhost:27018/?authSource=admin"
+    mongodb_db_name: str = "waves"
+
     model_config = SettingsConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",

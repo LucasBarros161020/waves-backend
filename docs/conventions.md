@@ -1581,9 +1581,9 @@ No Python, utilizar objetos `datetime` conscientes de timezone
 Preferir:
 
 ```python
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
-now = datetime.now(timezone.utc)
+now = datetime.now(UTC)
 ```
 
 Evitar:
@@ -1600,6 +1600,11 @@ e:
 datetime.utcnow()
 ```
 
+e a forma mais antiga `datetime.now(timezone.utc)` — equivalente em
+comportamento, mas o projeto padroniza no alias `datetime.UTC`
+(disponível desde Python 3.11), conforme a regra `UP017` do `ruff`, que
+o projeto utiliza sem suprimir essa verificação.
+
 O projeto não deverá utilizar `datetime` sem informação de timezone
 para eventos persistidos.
 
@@ -1614,7 +1619,7 @@ como `BSON Date` automaticamente.
 Exemplo conceitual:
 
 ```python
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from beanie import Document
 from pydantic import Field
@@ -1622,13 +1627,13 @@ from pydantic import Field
 
 class Order(Document):
     created_at: datetime = Field(
-        default_factory=lambda: datetime.now(timezone.utc),
+        default_factory=lambda: datetime.now(UTC),
     )
 ```
 
 A definição exata dos defaults de cada campo será realizada quando cada
 `Document` for implementado, mas todo campo de instante deverá seguir
-este padrão: `datetime` gerado com `timezone.utc`, nunca `datetime`
+este padrão: `datetime` gerado com `datetime.UTC`, nunca `datetime`
 "naive".
 
 ---

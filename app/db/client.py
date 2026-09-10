@@ -4,6 +4,7 @@ from beanie import init_beanie
 from pymongo import AsyncMongoClient
 
 from app.core.config import get_settings
+from app.models.user import User
 
 __author__ = "Lucas Barros"
 __version__ = "0.1.0"
@@ -28,7 +29,7 @@ client: AsyncMongoClient = AsyncMongoClient(
 # Document models are registered here as they are implemented (see
 # docs/conventions.md, section 4.24, for the project's schema evolution
 # approach without a migrations framework).
-document_models: list = []
+document_models: list = [User]
 
 
 async def init_database() -> None:

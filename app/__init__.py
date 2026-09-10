@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """Waves Backend application package."""
 
 __author__ = "Lucas Barros"

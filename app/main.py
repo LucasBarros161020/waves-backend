@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """Main entrypoint for the Waves Backend FastAPI application."""
 
 from fastapi import FastAPI

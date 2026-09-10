@@ -156,9 +156,9 @@ O backend será desenvolvido com:
 
 - Python;
 - FastAPI;
-- PostgreSQL;
-- SQLAlchemy;
-- Alembic.
+- MongoDB;
+- Motor (driver assíncrono);
+- Beanie (ODM assíncrono sobre Motor e Pydantic).
 
 As versões, ferramentas auxiliares e demais decisões técnicas serão
 definidas e documentadas nas próximas etapas da Fase 0.

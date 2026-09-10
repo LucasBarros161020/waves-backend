@@ -549,10 +549,10 @@ UPPER_SNAKE_CASE
 
 ---
 
-## 4.9 Models SQLAlchemy
+## 4.9 Documentos Beanie
 
-Classes que representam entidades persistidas devem utilizar nome
-singular em `PascalCase`.
+Classes que representam documentos persistidos (`Document` do Beanie)
+devem utilizar nome singular em `PascalCase`.
 
 Exemplos:
 
@@ -565,13 +565,14 @@ OrderItem
 InventoryMovement
 ```
 
-A classe deve representar uma entidade individual.
+A classe deve representar uma entidade individual, mapeada para uma
+coleção do MongoDB (ver seção `4.10`).
 
 ---
 
-## 4.10 Tabelas do banco de dados
+## 4.10 Coleções do banco de dados
 
-Tabelas devem utilizar:
+Coleções devem utilizar:
 
 ```text
 plural + snake_case
@@ -608,11 +609,14 @@ tb_
 tbl_
 ```
 
+mesmo o MongoDB não sendo relacional — a regra existe para manter a
+nomenclatura previsível e consistente entre coleções.
+
 ---
 
-## 4.11 Colunas do banco de dados
+## 4.11 Campos do documento
 
-Colunas devem utilizar:
+Campos devem utilizar:
 
 ```text
 snake_case
@@ -632,9 +636,10 @@ updated_at
 
 ---
 
-## 4.12 Chaves estrangeiras
+## 4.12 Campos de referência
 
-Campos de chave estrangeira devem utilizar:
+Documentos que referenciam outro documento devem armazenar o
+identificador do documento referenciado em um campo:
 
 ```text
 <entity>_id
@@ -650,11 +655,15 @@ ingredient_id
 supplier_id
 ```
 
+O MongoDB não impõe uma constraint de chave estrangeira: a integridade
+referencial (garantir que o documento referenciado exista) é
+responsabilidade da camada de aplicação (services), não do banco.
+
 ---
 
-## 4.13 Tabelas de associação
+## 4.13 Coleções de associação
 
-Tabelas de associação devem utilizar nomes que representem claramente
+Coleções de associação devem utilizar nomes que representem claramente
 as entidades relacionadas.
 
 Exemplo:
@@ -678,16 +687,20 @@ product_map
 links
 ```
 
+Uma relação que carregue um atributo próprio (por exemplo, `quantity`
+em `product_ingredients`) deverá ser modelada como uma coleção própria,
+e não como um array embutido sem estrutura.
+
 ---
 
-## 4.14 Índices e constraints
+## 4.14 Índices
 
 Quando forem nomeados explicitamente, utilizar padrões previsíveis.
 
 ### Índices
 
 ```text
-ix_<table>_<column>
+ix_<collection>_<field>
 ```
 
 Exemplo:
@@ -697,10 +710,10 @@ ix_customers_cpf
 ix_orders_status
 ```
 
-### Unique constraints
+### Índices únicos
 
 ```text
-uq_<table>_<column>
+uq_<collection>_<field>
 ```
 
 Exemplo:
@@ -710,29 +723,17 @@ uq_users_email
 uq_customers_cpf
 ```
 
-### Foreign keys
+Índices únicos deverão ser declarados no próprio `Document` do Beanie
+(via `Indexed(unique=True)` ou definição explícita em `class Settings`)
+e criados automaticamente na inicialização da aplicação (`init_beanie`).
 
-```text
-fk_<table>_<column>_<referenced_table>
-```
+### Sem chaves estrangeiras ou check constraints no banco
 
-Exemplo:
-
-```text
-fk_orders_customer_id_customers
-```
-
-### Check constraints
-
-```text
-ck_<table>_<rule>
-```
-
-Exemplo:
-
-```text
-ck_order_items_quantity_positive
-```
+O MongoDB não oferece suporte nativo a chaves estrangeiras nem a
+`CHECK constraints`. Regras equivalentes — integridade referencial,
+validações de domínio como "quantidade deve ser positiva" — deverão ser
+garantidas pela camada de aplicação (schemas Pydantic e services), não
+pelo banco.
 
 ---
 
@@ -1033,6 +1034,32 @@ Regras:
 
 ---
 
+## 4.24 Evolução de schema (sem ferramenta de migrations)
+
+O projeto utiliza MongoDB através do Beanie, e não adotará uma
+ferramenta de migrations (não há um "Alembic" equivalente neste
+projeto).
+
+Justificativa:
+
+- o MongoDB é schemaless — não existe uma definição de schema no banco
+  para ser versionada;
+- o Beanie cria os índices declarados nos `Document` automaticamente na
+  inicialização da aplicação (`init_beanie`), sem passo manual adicional.
+
+Quando uma mudança de formato exigir transformar documentos já
+existentes (por exemplo, renomear um campo ou alterar seu tipo), a
+transformação deverá ser feita por um script de aplicação pontual,
+executado manualmente contra o ambiente afetado, e não por um framework
+de migrations versionado.
+
+Esta é uma decisão deliberada, registrada aqui para não ser presumida
+silenciosamente durante o desenvolvimento. Caso o projeto cresça a
+ponto de justificar uma ferramenta formal de migração de dados, essa
+mudança deverá ser proposta e registrada nesta seção antes de adotada.
+
+---
+
 # 5. Identificadores
 
 ## 5.1 Estratégia padrão
@@ -1057,25 +1084,33 @@ A escolha prioriza:
 
 ---
 
-## 5.2 Tipo no PostgreSQL
+## 5.2 Tipo no MongoDB
 
-Os identificadores deverão utilizar o tipo nativo:
+Os identificadores deverão ser armazenados no campo `_id` de cada
+documento como UUID nativo do BSON (`Binary subtype 4`), e não como
+string.
 
-```text
-UUID
+O driver Motor deverá ser configurado explicitamente com:
+
+```python
+uuidRepresentation="standard"
 ```
 
-do PostgreSQL.
+Isso evita o problema conhecido de representações "legadas" de UUID em
+BSON (`pythonLegacy`, `javaLegacy`, `csharpLegacy`), que armazenam os
+bytes do UUID em ordens diferentes e são incompatíveis entre si. Sem
+essa configuração explícita, um mesmo UUID pode ser lido de forma
+diferente por drivers diferentes.
 
 Evitar armazenar UUID como:
 
 ```text
-VARCHAR
-TEXT
-CHAR(36)
+string simples, sem tipo BSON UUID
 ```
 
-quando o tipo nativo estiver disponível.
+quando o driver/ODM oferecer suporte nativo ao tipo, exceto quando
+houver necessidade pontual de compatibilidade externa — e, nesse caso,
+a exceção deverá ser registrada nesta seção.
 
 ---
 
@@ -1114,15 +1149,16 @@ Exemplo conceitual:
 ```text
 customers
 ---------
-id UUID PRIMARY KEY
+_id  UUID  (chave primária do documento)
 name
 cpf
 created_at
 updated_at
 ```
 
-No SQLAlchemy, o identificador deverá ser mapeado para o tipo UUID
-compatível com PostgreSQL.
+No Beanie, o campo `id` do `Document` deverá ser tipado como `UUID`
+(com `default_factory=uuid4`), sendo persistido como `_id` do documento
+no MongoDB.
 
 ---
 
@@ -1316,7 +1352,7 @@ continuará sendo UUID.
 
 ---
 
-## 5.13 Tabelas de associação
+## 5.13 Coleções de associação
 
 Por padrão, relações que representem uma entidade própria do domínio
 podem possuir seu próprio UUID.
@@ -1336,17 +1372,21 @@ ingredient_id UUID
 quantity
 ```
 
-Além disso, deverá ser utilizada uma constraint de unicidade quando a
-regra exigir impedir relações duplicadas, por exemplo:
+Além disso, deverá ser utilizado um índice único quando a regra exigir
+impedir relações duplicadas, por exemplo, um índice único composto
+sobre:
 
 ```text
-UNIQUE(product_id, ingredient_id)
+(product_id, ingredient_id)
 ```
 
-A decisão por chave composta somente deverá ser adotada explicitamente
-quando trouxer benefício claro.
+A decisão por uma chave composta como identificador do documento
+somente deverá ser adotada explicitamente quando trouxer benefício
+claro.
 
-O padrão do projeto permanece favorecer uma chave primária UUID simples.
+O padrão do projeto permanece favorecer um `_id` UUID simples, com o
+índice único composto sendo uma restrição adicional, não o identificador
+do documento.
 
 ---
 
@@ -1389,15 +1429,15 @@ segurança.
 Salvo decisão explícita e documentada em contrário:
 
 ```text
-Primary key        → UUID v4
-Tipo PostgreSQL    → UUID
-Tipo Python        → UUID
-Geração            → uuid4()
-Foreign keys       → UUID
-Parâmetro de rota  → UUID
-Schema Pydantic    → UUID
-Nome da PK         → id
-Nome da FK         → <entity>_id
+Primary key            → UUID v4
+Tipo MongoDB           → UUID (BSON Binary subtype 4, uuidRepresentation="standard")
+Tipo Python            → UUID
+Geração                → uuid4()
+Campos de referência   → UUID
+Parâmetro de rota      → UUID
+Schema Pydantic        → UUID
+Nome da PK             → id (mapeado para _id no documento)
+Nome do campo de ref.  → <entity>_id
 ```
 
 Qualquer exceção deverá ser justificada e registrada neste documento.
@@ -1451,21 +1491,22 @@ convenção deverá ser revisada antes de implementar suporte multiunidade.
 
 ---
 
-## 6.3 Datas e horários no PostgreSQL
+## 6.3 Datas e horários no MongoDB
 
-Campos que representam um instante real no tempo deverão utilizar:
-
-```text
-TIMESTAMP WITH TIME ZONE
-```
-
-No PostgreSQL, normalmente representado por:
+Campos que representam um instante real no tempo deverão ser
+armazenados como o tipo nativo:
 
 ```text
-timestamptz
+BSON Date
 ```
 
-Exemplos:
+O BSON `Date` já representa internamente um instante UTC (milissegundos
+desde a época Unix) — diferente do PostgreSQL, não é necessário
+configurar timezone explicitamente no tipo do campo. A responsabilidade
+de gerar o valor como `datetime` timezone-aware (ver seção `6.6`)
+permanece inteiramente do código Python, antes da persistência.
+
+Exemplos de campos:
 
 ```text
 created_at
@@ -1478,24 +1519,17 @@ delivered_at
 cancelled_at
 ```
 
-Evitar:
-
-```text
-TIMESTAMP WITHOUT TIME ZONE
-```
-
-para eventos que representam um instante real.
+Evitar persistir um instante como string formatada (por exemplo,
+`"09/09/2026 14:30"`) quando o valor representa um evento real no
+tempo — o tipo `BSON Date` deverá ser sempre utilizado nesses casos.
 
 ---
 
 ## 6.4 Datas sem horário
 
 Quando o domínio representar somente uma data, sem horário ou fuso,
-utilizar o tipo:
-
-```text
-DATE
-```
+utilizar o tipo `date` do Python (`datetime.date`) no model e no
+schema.
 
 Exemplos possíveis:
 
@@ -1503,6 +1537,13 @@ Exemplos possíveis:
 birth_date
 purchase_document_date
 ```
+
+O MongoDB não possui um tipo BSON dedicado apenas para data (sem
+horário) — o driver converte um `date` do Python para `BSON Date` à
+meia-noite UTC do dia correspondente. Isso é aceitável para o uso
+pretendido (comparação e exibição de datas), mas não deverá ser
+interpretado como um instante real no tempo: campos desse tipo não
+deverão ser usados para calcular durações (ver seção `6.12`).
 
 Não utilizar `datetime` quando o dado de negócio representa apenas uma
 data.
@@ -1561,27 +1602,31 @@ para eventos persistidos.
 
 ---
 
-## 6.7 SQLAlchemy
+## 6.7 Beanie
 
-Campos que representam instantes deverão utilizar configuração com
-timezone habilitado.
+Campos que representam instantes deverão utilizar `datetime`
+timezone-aware do Python; o Beanie/Motor se encarrega de serializá-los
+como `BSON Date` automaticamente.
 
 Exemplo conceitual:
 
 ```python
-from datetime import datetime
-from sqlalchemy import DateTime
-from sqlalchemy.orm import Mapped, mapped_column
+from datetime import datetime, timezone
+
+from beanie import Document
+from pydantic import Field
 
 
-created_at: Mapped[datetime] = mapped_column(
-    DateTime(timezone=True),
-    nullable=False,
-)
+class Order(Document):
+    created_at: datetime = Field(
+        default_factory=lambda: datetime.now(timezone.utc),
+    )
 ```
 
-A definição exata dos defaults será realizada quando a base dos models
-for implementada.
+A definição exata dos defaults de cada campo será realizada quando cada
+`Document` for implementado, mas todo campo de instante deverá seguir
+este padrão: `datetime` gerado com `timezone.utc`, nunca `datetime`
+"naive".
 
 ---
 
@@ -1844,10 +1889,10 @@ Salvo decisão explícita e documentada em contrário:
 ```text
 Timezone interno              → UTC
 Timezone operacional padrão   → America/Sao_Paulo
-PostgreSQL para instantes     → TIMESTAMPTZ
+MongoDB para instantes        → BSON Date (UTC nativo)
 Python para instantes         → datetime timezone-aware
 Formato da API                → ISO 8601
-Datas sem horário             → DATE
+Datas sem horário             → date (Python) / string ISO na API
 Horários recorrentes locais   → horário + contexto de timezone
 Formatação para usuário       → camada de apresentação
 ```
@@ -2201,15 +2246,15 @@ Mensagens devem:
 - ser objetivas;
 - não conter stack trace;
 - não expor informações internas;
-- não expor SQL;
+- não expor detalhes de consultas ao banco;
 - não expor segredos;
 - não expor detalhes desnecessários da infraestrutura.
 
 Evitar mensagens como:
 
 ```text
-sqlalchemy.exc.IntegrityError...
-relation "customers" does not exist...
+pymongo.errors.DuplicateKeyError...
+motor.core: connection refused at mongodb://...
 KeyError at app/modules/orders/service.py line 87...
 ```
 
@@ -2486,13 +2531,13 @@ cada endpoint.
 
 ## 8.10 Erros de banco de dados
 
-Erros técnicos do PostgreSQL ou SQLAlchemy não deverão ser enviados
-diretamente ao cliente.
+Erros técnicos do MongoDB, do Motor ou do Beanie não deverão ser
+enviados diretamente ao cliente.
 
 Exemplo:
 
-Uma violação de unicidade de CPF poderá ocorrer tecnicamente como uma
-constraint do banco.
+Uma violação de unicidade de CPF poderá ocorrer tecnicamente como um
+`DuplicateKeyError` de um índice único do banco.
 
 A API deverá convertê-la para algo como:
 
@@ -2504,8 +2549,8 @@ A API deverá convertê-la para algo como:
 }
 ```
 
-O cliente da API não deverá precisar conhecer PostgreSQL, SQLAlchemy ou
-nomes internos de constraints para interpretar o problema.
+O cliente da API não deverá precisar conhecer MongoDB, Beanie ou nomes
+internos de índices para interpretar o problema.
 
 ---
 
@@ -3085,7 +3130,8 @@ orders    → created_at desc
 
 A ordenação padrão de cada recurso deverá ser definida no módulo.
 
-Não depender da ordem natural retornada pelo PostgreSQL.
+Não depender da ordem natural de retorno do MongoDB (a ordem de uma
+consulta sem `sort` explícito não é garantida).
 
 ---
 
@@ -3198,8 +3244,16 @@ Listagens deverão ser projetadas para evitar:
 - filtros não controlados;
 - consultas excessivamente amplas.
 
-A paginação deverá acontecer no banco sempre que os dados forem
-persistidos no PostgreSQL.
+A paginação deverá acontecer no banco (via `skip`/`limit` do MongoDB),
+nunca carregando a coleção inteira na aplicação para paginar em memória.
+
+Atenção: `skip` com valores altos é uma operação custosa no MongoDB (o
+banco precisa percorrer e descartar os documentos anteriores). Para
+listagens que cresçam muito e sejam paginadas em profundidade, uma
+estratégia de paginação por cursor (baseada no último `_id`/campo de
+ordenação visto) poderá ser adotada no futuro — essa mudança, se
+necessária, deverá ser proposta e registrada nesta seção antes de
+implementada.
 
 ---
 

@@ -6,7 +6,7 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 
-from app.api.routes import auth, users
+from app.api.routes import auth, users, ws
 from app.core.config import get_settings
 from app.core.error_handlers import register_error_handlers
 from app.core.logging import configure_logging
@@ -42,6 +42,7 @@ register_error_handlers(app)
 
 app.include_router(auth.router)
 app.include_router(users.router)
+app.include_router(ws.router)
 
 
 @app.get("/health", tags=["Health"])

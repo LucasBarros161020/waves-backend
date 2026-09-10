@@ -27,3 +27,20 @@ dev = [
     "pytest-asyncio>=1.4.0",
     "ruff>=0.16.6",
 ]
+
+[tool.ruff.lint.flake8-bugbear]
+# FastAPI's dependency injection requires calls like `Depends(...)` and
+# `Security(...)` as argument defaults — this is the framework's documented,
+# idiomatic pattern, not an accidental mutable-default bug. Without this
+# allowlist, ruff's B008 flags every dependency-injected endpoint parameter.
+extend-immutable-calls = [
+    "fastapi.Depends",
+    "fastapi.Security",
+    "fastapi.Query",
+    "fastapi.Path",
+    "fastapi.Header",
+    "fastapi.Cookie",
+    "fastapi.Body",
+    "fastapi.Form",
+    "fastapi.File",
+]

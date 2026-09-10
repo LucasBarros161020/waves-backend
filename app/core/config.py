@@ -22,6 +22,13 @@ class Settings(BaseSettings):
     mongodb_url: str = "mongodb://waves:waves@localhost:27018/?authSource=admin"
     mongodb_db_name: str = "waves"
 
+    jwt_secret_key: str = "change-me-to-a-random-secret-of-at-least-32-characters"
+    jwt_algorithm: str = "HS256"
+    access_token_expire_minutes: int = 480
+
+    seed_admin_email: str = "admin@waves.com.br"
+    seed_admin_password: str = "change-me-before-seeding"
+
     model_config = SettingsConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",

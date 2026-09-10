@@ -6,6 +6,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 
 from app.core.config import get_settings
+from app.core.error_handlers import register_error_handlers
 from app.db.client import close_database_connection, init_database
 
 __author__ = "Lucas Barros"
@@ -32,6 +33,8 @@ app = FastAPI(
     debug=settings.debug,
     lifespan=lifespan,
 )
+
+register_error_handlers(app)
 
 
 @app.get("/health", tags=["Health"])

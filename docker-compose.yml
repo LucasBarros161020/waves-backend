@@ -1,0 +1,14 @@
+services:
+  mongo:
+    image: mongo:7
+    restart: unless-stopped
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: waves
+      MONGO_INITDB_ROOT_PASSWORD: waves
+    ports:
+      - "27018:27017"
+    volumes:
+      - waves_mongo_data:/data/db
+
+volumes:
+  waves_mongo_data:

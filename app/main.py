@@ -1,8 +1,12 @@
 """Main entrypoint for the Waves Backend FastAPI application."""
 
+from collections.abc import AsyncGenerator
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
 
 from app.core.config import get_settings
+from app.db.client import close_database_connection, init_database
 
 __author__ = "Lucas Barros"
 __version__ = "0.1.0"
@@ -13,10 +17,20 @@ __status__ = "Development"
 
 settings = get_settings()
 
+
+@asynccontextmanager
+async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
+    """Initialize and tear down application-wide resources."""
+    await init_database()
+    yield
+    await close_database_connection()
+
+
 app = FastAPI(
     title=settings.app_name,
     version=settings.app_version,
     debug=settings.debug,
+    lifespan=lifespan,
 )
 
 
